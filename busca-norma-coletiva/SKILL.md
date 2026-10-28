@@ -23,11 +23,39 @@ Histórico de vários anos (ex.: "últimos 5 anos"): faça uma busca por janela 
 
 Uma mesma categoria profissional costuma ter várias convenções, uma por sindicato patronal (ex.: os comerciários de SP têm CCTs distintas com Sindilojas, Fecomercio/atacadistas, Sincovaga, Sincamesp etc.). A norma aplicável depende do enquadramento pela atividade preponderante da empresa. Se a atividade não estiver clara, apresente as principais com a abrangência de cada uma e diga isso, em vez de escolher uma. Não pergunte o que dá para inferir; pergunte só se não houver nenhum filtro de participante nem categoria (a busca ficaria ampla demais).
 
-Razão social, CNPJ e CEI são mutuamente exclusivos (o site desmarca os outros). Razão social também desmarca categoria. A busca por razão social é por trecho do nome, sem acento e em maiúsculas funciona melhor; se não vier nada, tente um trecho menor ("COMERCIARIOS DE SAO PAULO").
+Razão social, CNPJ e CEI são mutuamente exclusivos (o site desmarca os outros). Razão social também desmarca categoria. A busca por razão social é por trecho do nome, sem acento e em maiúsculas (os nomes estão cadastrados assim); se não vier nada, tente um trecho menor ("COMERCIARIOS DE SAO PAULO"). **A categoria é o contrário: precisa de acento** ("Açúcar" acha centenas de instrumentos; "acucar" não acha nenhum).
+
+#### Normas aplicáveis a uma empresa (ACT + CCT)
+
+Buscar pelo nome ou CNPJ da empresa só traz os instrumentos que ela **assinou** (acordos coletivos e, raramente, convenções). A convenção da categoria, assinada pelos sindicatos sem a empresa, não aparece. Quando o pedido for "as normas da empresa X" ou a norma aplicável a um empregado dela, levante as duas:
+
+1. Acordos da empresa: busca por CNPJ ou razão social (passos 2 e 3).
+2. Na lista e nos extratos dos acordos, anote o **sindicato profissional** (com CNPJ) e a **base territorial** (cláusula de abrangência) de cada unidade.
+3. Convenções da categoria: nova busca pelo **CNPJ do sindicato profissional**, com tipo `convencao` e o mesmo período. O mesmo sindicato também aparece em acordos de outras empresas, por isso o tipo `convencao` é necessário.
+4. Se não vier convenção, tente pela categoria (com acento, ex.: "Açúcar", "Alimentação"), tipo `convencao` e UF de registro. A CCT pode ter sido assinada pela federação, e não pelo sindicato local. Confira na abrangência se o município da unidade está incluído.
+5. Se a empresa não tiver acordo, pergunte ou deduza a atividade e o município, e vá direto ao item 4.
+
+Na resposta, diga qual instrumento prevalece. Pelo art. 620 da CLT (redação da Lei 13.467/2017), as condições do acordo coletivo sempre prevalecem sobre as da convenção. Se a CCT trouxer cláusulas sobre temas que o ACT não regula, mostre-as e avise que a aplicação delas é discutível. Se nenhuma convenção for encontrada, diga isso; em alguns setores a negociação é só por acordo.
 
 ### 2. Abrir a página e pesquisar
 
-Abra `https://mediador.trabalho.gov.br/sistemas/mediador/ConsultarInstColetivo` (no navegador integrado: `preview_start` com `url`; para buscas seguintes, `navigate` para a mesma URL). Depois use duas chamadas de `javascript_tool`: a primeira preenche e clica, a segunda espera e lê. Uma só chamada pode passar do limite de ~45 s da ferramenta quando o servidor demora.
+Abra `https://mediador.trabalho.gov.br/sistemas/mediador/ConsultarInstColetivo` (no navegador integrado: `preview_start` com `url`; para buscas seguintes, `navigate` para a mesma URL).
+
+**Na primeira busca da conversa, confira se o formulário continua igual.** Os snippets dependem dos IDs abaixo; se o MTE mudar a página, eles falham sem erro e a busca volta vazia, o que pareceria "nenhuma norma":
+
+```js
+const ids = ['chkNRCNPJ','txtNRCNPJ','chkNORazaoSocial','txtNORazaoSocial','chkCategoria','txtDSCategoria',
+  'cboTPRequerimento','cboSTVigencia','cboUFRegistro','chkVigencia','txtDTInicioVigencia','txtDTFimVigencia',
+  'cboGrupoClausula','cboSubGrupoClausula','txtNOTituloClausula','btnPesquisar','divConsultaDetalhada'];
+const tipos = [...document.querySelectorAll('#cboTPRequerimento option')].map(o => o.value);
+({ faltando: ids.filter(id => !document.getElementById(id)),
+   tiposOk: ['acordo','convencao','termoAditivoAcordo','termoAditivoConvecao'].every(v => tipos.includes(v)),
+   jquery: typeof $ === 'function', recaptcha: typeof grecaptcha === 'object' });
+```
+
+Esperado: `faltando: []`, `tiposOk`, `jquery` e `recaptcha` como `true`. Se algo falhar, não confie nos snippets: mapeie a página de novo (liste `input, select, button` com id, name e o texto da linha), adapte os IDs e avise o usuário que o site mudou e a skill precisa ser atualizada.
+
+Depois use duas chamadas de `javascript_tool`: a primeira preenche e clica, a segunda espera e lê. Uma só chamada pode passar do limite de ~45 s da ferramenta quando o servidor demora.
 
 **Chamada A — preencher e pesquisar** (ajuste o objeto `f`):
 
@@ -82,7 +110,7 @@ const lista = [...document.querySelectorAll('#divConsultaDetalhada a[href*="Resu
 ({ resultado: h || (alerta ? 'ALERTA: ' + alerta : 'ainda processando'), lista });
 ```
 
-Um alerta (ex.: "O intervalo máximo de pesquisa é de um ano.") significa que a busca não foi feita: corrija o filtro, recarregue e repita.
+Um alerta "Nenhum registro encontrado." é um resultado válido (zero instrumentos). Outros alertas (ex.: "O intervalo máximo de pesquisa é de um ano.") significam que a busca não foi feita: corrija o filtro, recarregue e repita.
 
 Os IDs são estáveis; não use refs de `read_page` (mudam a cada recarga). Recarregue a página antes de cada nova busca.
 
@@ -138,11 +166,16 @@ for (const s of sols) {
     dataRegistro: g(/DATA DE REGISTRO NO MTE:\s*([\d\/]+)/),
     partes: [...body.innerText.matchAll(/\n\s*([^\n]{5,200}?), CNPJ n\. ([\d\.\/\-]+)/g)].map(m => m[1].trim() + ' (' + m[2] + ')'),
     abrangencia: g(/abrangerá a\(s\) categoria\(s\) (.{0,900}?abrangência territorial em [^.]*\.)/),
+    aditivos: [...(t.match(/ADITIVO\(S\) VINCULADO\(S\)(.*?)CNPJ n\./) || ['', ''])[1]
+      .matchAll(/Processo nº:\s*(\S+?)\s*e Registro nº:\s*([A-Z]{2,3}\d{6}\/\d{4})?/g)]
+      .map(m => ({ processo: m[1], registro: m[2] || 'sem registro' })),
     clausulas: [...t.matchAll(/CLÁUSULA [A-ZÇÃÉÊÍÓÔÚ]+(?: [A-ZÇÃÉÊÍÓÔÚ]+)? [-–] ([A-ZÇÃÉÊÍÓÔÚÕÂ0-9 ,\/\.\(\)ªº]{3,90}?)(?= [A-Z][a-zçãéáíóú])/g)].map(m => m[1].trim())
   };
 }
 JSON.stringify(out);
 ```
+
+**Termos aditivos vinculados:** o campo `aditivos` lê a seção "Termos aditivo(s) vinculado(s)" do cabeçalho do extrato. Aditivos alteram cláusulas da norma principal, então, sempre que for transcrever uma cláusula ou dizer o "texto vigente", confira essa lista. Para cada registro: procure-o na lista de resultados que você já tem (aditivos aparecem nas mesmas buscas por partes e período). Se não estiver, busque pelo CNPJ de uma das partes com tipo `termoAditivoAcordo` ou `termoAditivoConvecao` e o período da norma principal. Abra o aditivo e veja se ele altera a cláusula pedida. "sem registro" indica um aditivo protocolado mas ainda não registrado; informe isso ao usuário.
 
 Os títulos de cláusula mostram o assunto de cada instrumento. Isso ajuda a separar acordos paralelos do mesmo período (ex.: um acordo geral de salários e benefícios e outro só de jornada/turnos). Para transcrever uma cláusula, abra o instrumento numa aba e use o snippet de cláusulas acima.
 
@@ -154,7 +187,8 @@ Para cada instrumento usado, informe:
 - partes (sindicatos/empresa);
 - nº de registro no MTE, data de registro e nº da solicitação;
 - abrangência (categoria e base territorial, da cláusula de abrangência);
-- link `ResumoVisualizar` para conferência.
+- link `ResumoVisualizar` para conferência;
+- termos aditivos vinculados (registro e se alteram as cláusulas transcritas).
 
 Para levantamentos de vários anos, use tabelas por unidade/sindicato (período, registro, solicitação com link, vigência, data de registro), marcando o vigente e os anos sem instrumento encontrado.
 

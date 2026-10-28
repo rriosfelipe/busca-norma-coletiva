@@ -9,7 +9,9 @@ Levantado em 28/10/2026. Se algum ID deixar de existir, mapeie de novo com `java
 | CNPJ/CAEPF | `chkNRCNPJ` | `txtNRCNPJ` | `99.999.999/9999-99` |
 | Matrícula CEI | `chkNRCEI` | `txtNRCEI` | `99999999999-9` |
 | Razão Social | `chkNORazaoSocial` | `txtNORazaoSocial` | texto (trecho) |
-| Categoria | `chkCategoria` | `txtDSCategoria` | texto; desmarcado pela razão social |
+| Categoria | `chkCategoria` | `txtDSCategoria` | texto **com acento** ("Açúcar"); desmarcado pela razão social |
+
+Razão social: sem acento, em maiúsculas. Categoria: com acento (sem acento volta "Nenhum registro encontrado.").
 
 ## Instrumento
 

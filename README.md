@@ -10,6 +10,9 @@ Cobre:
 
 - busca por razão social, CNPJ, categoria, tipo, UF de registro e período de vigência;
 - históricos de vários anos (uma busca por ano, já que o site limita o período a 1 ano);
+- normas aplicáveis a uma empresa: os acordos que ela assinou e as convenções da categoria (pelo sindicato profissional), com a regra de prevalência do art. 620 da CLT;
+- termos aditivos vinculados a cada instrumento;
+- checagem inicial do formulário, para avisar quando o site do MTE mudar;
 - leitura dos extratos e filtro das cláusulas por título;
 - resposta com registro, solicitação, vigência, partes, abrangência, link e texto integral das cláusulas.
 
