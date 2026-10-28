@@ -16,6 +16,12 @@ Cobre:
 - leitura dos extratos e filtro das cláusulas por título;
 - resposta com registro, solicitação, vigência, partes, abrangência, link e texto integral das cláusulas.
 
+## Estrutura
+
+- `SKILL.md`: o fluxo e as regras (o que buscar, como escolher a norma, como responder).
+- `references/snippets.md`: o código que roda no navegador (checagem, busca, leitura em lote, extração de cláusulas).
+- `references/campos.md`: IDs do formulário, valores dos selects e endpoints.
+
 ## Instalação
 
 **Claude Code:** copie a pasta `busca-norma-coletiva/` para `~/.claude/skills/` (no Windows, `C:\Users\<usuário>\.claude\skills\`).
