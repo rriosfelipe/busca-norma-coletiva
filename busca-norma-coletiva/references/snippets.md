@@ -7,6 +7,7 @@ Rode cada um na aba do Mediador. Ajuste só o que está marcado como entrada (ob
 - [S3. Busca — esperar e ler a lista](#s3-busca--esperar-e-ler-a-lista)
 - [S4. Cláusulas de um instrumento](#s4-cláusulas-de-um-instrumento)
 - [S5. Vários instrumentos de uma vez (lote)](#s5-vários-instrumentos-de-uma-vez-lote)
+- [S6. Comparar com o instrumento anterior](#s6-comparar-com-o-instrumento-anterior)
 
 ## S1. Checagem do formulário
 
@@ -61,11 +62,15 @@ Em chamada separada de S2 (uma só passaria do limite de ~45 s da ferramenta). S
 ```js
 const dialogo = () => [...document.querySelectorAll('.ui-dialog')]
   .find(d => d.offsetWidth > 0 && !/Processando/.test(d.innerText) && d.innerText.trim());
+// desafio visível do Cloudflare ou do reCAPTCHA (o selo do v3 não conta)
+const desafio = () => /just a moment|verify you are human|verifique se você é humano/i.test(document.title + ' ' + document.body.innerText.slice(0, 1000))
+  || [...document.querySelectorAll('iframe[src*="recaptcha"][src*="bframe"], iframe[src*="challenges.cloudflare.com"]')]
+    .some(f => f.offsetWidth > 0 && f.offsetHeight > 100);
 let h = '', alerta;
 for (let i = 0; i < 30 && !h && !alerta; i++) {
   await new Promise(r => setTimeout(r, 1000));
   h = document.querySelector('#divConsultaDetalhada h2')?.innerText || '';
-  alerta = dialogo()?.innerText.trim();
+  alerta = dialogo()?.innerText.trim() || (desafio() ? 'DESAFIO: o site pediu verificação humana; peça ao usuário que resolva no painel do navegador' : '');
 }
 if (h) await new Promise(r => setTimeout(r, 1000)); // a lista termina de renderizar depois do h2
 const lista = [...document.querySelectorAll('#divConsultaDetalhada a[href*="ResumoVisualizar"]')].map(a => {
@@ -78,10 +83,21 @@ const lista = [...document.querySelectorAll('#divConsultaDetalhada a[href*="Resu
     url: a.href
   };
 });
-({ resultado: h || (alerta ? 'ALERTA: ' + alerta : 'ainda processando'), lista });
+const total = +(h.match(/(\d+) Instrumento/) || [])[1] || 0, pagina = +(h.match(/Página (\d+)/) || [])[1] || 0;
+const comClausula = !!($('#cboGrupoClausula').val() || $('#txtNOTituloClausula').val());
+// registros já vistos nas páginas anteriores desta busca (a página recarregada zera)
+if (pagina <= 1 || !window.__vistos) window.__vistos = new Set();
+const repetidos = lista.filter(x => window.__vistos.has(x.registro)).map(x => x.registro);
+lista.forEach(x => window.__vistos.add(x.registro));
+const aviso = total > 0 && !lista.length && !comClausula
+  ? 'LAYOUT: o site diz ' + total + ' instrumento(s), mas nenhum foi lido; o HTML mudou — mapeie a página de novo'
+  : repetidos.length === lista.length && lista.length ? 'PAGINAÇÃO: página só com registros já vistos; o clique em "Próximo" não avançou' : '';
+({ resultado: h || (alerta ? 'ALERTA: ' + alerta : 'ainda processando'), aviso, pagina, repetidos, lista });
 ```
 
 Com o filtro de cláusula do site, a `lista` vem vazia: o resultado é o próprio texto das cláusulas; leia `document.querySelector('#divConsultaDetalhada').innerText`.
+
+Rode S3 uma vez por página: rodar de novo na mesma página marca tudo como repetido.
 
 ## S4. Cláusulas de um instrumento
 
@@ -139,3 +155,57 @@ JSON.stringify(out);
 ```
 
 `aditivos` vazio = nenhum aditivo vinculado; `registro: 'sem registro'` = aditivo protocolado mas ainda não registrado.
+
+## S6. Comparar com o instrumento anterior
+
+De qualquer aba que já esteja no Mediador. Alinha as cláusulas dos dois instrumentos pelo título (sem o número, que muda de um ano para outro) e classifica cada uma.
+
+```js
+const antes = 'MR033274/2024', depois = 'MR047163/2025'; // nº da solicitação de cada um
+const termos = []; // vazio = só o mapa; com termos (do título), devolve também o texto integral das duas versões
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const titulo = s => s.length < 90 && !/\d/.test(s) && !/^[a-zA-Z]{1,3}\)/.test(s) && !/[.;:,)”"]$/.test(s);
+const limpa = p => { const l = p.trim().split('\n').map(x => x.trim());
+  while (l.length > 2 && (l.at(-1) === '' || titulo(l.at(-1)))) l.pop(); return l.join('\n').trim(); };
+const chave = t => norm(t.replace(/^CLÁUSULA [A-ZÇÃÉÊÍÓÔÚ\- ]+?(?: -|–)\s*/, '')).replace(/[^a-z0-9]+/g, '');
+const ler = async sol => {
+  const html = await (await fetch('/sistemas/mediador/Resumo/ResumoVisualizar?NrSolicitacao=' + encodeURIComponent(sol))).text();
+  const div = document.createElement('div');
+  div.style.cssText = 'position:absolute;left:-99999px;width:900px';
+  div.innerHTML = new DOMParser().parseFromString(html, 'text/html').body.innerHTML;
+  document.body.appendChild(div);
+  const texto = div.innerText.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n'); div.remove();
+  const m = new Map();
+  for (const p of texto.split(/\n(?=CLÁUSULA [A-ZÇÃÉÊÍÓÔÚ\- ]+?(?: -|–))/).slice(1)) {
+    const t = p.split('\n')[0]; m.set(chave(t), { titulo: t, corpo: limpa(p).split('\n').slice(1).join('\n').trim() });
+  }
+  return m;
+};
+const valores = s => [...s.matchAll(/R\$\s*[\d.]+,\d{2}|\d+(?:,\d+)?\s*%/g)].map(x => x[0].replace(/\s+/g, ' '));
+const forma = s => norm(s.replace(/\b(19|20)\d{2}\b/g, '')).replace(/[^a-z0-9]+/g, '');
+// do primeiro ao último ponto em que os textos divergem (com 4 palavras de contexto)
+const trecho = (a, b) => { const x = a.split(/\s+/), y = b.split(/\s+/); let i = 0, j = 0;
+  while (i < x.length && i < y.length && x[i] === y[i]) i++;
+  while (j < x.length - i && j < y.length - i && x.at(-1 - j) === y.at(-1 - j)) j++;
+  const corta = w => { const s = w.join(' '); return s.length > 300 ? s.slice(0, 300) + '…' : s; };
+  return { antes: corta(x.slice(Math.max(0, i - 4), x.length - j)), depois: corta(y.slice(Math.max(0, i - 4), y.length - j)) }; };
+const [A, B] = [await ler(antes), await ler(depois)];
+const out = { antes: { sol: antes, clausulas: A.size }, depois: { sol: depois, clausulas: B.size },
+  novas: [], removidas: [], alteradas: [], soFormaOuAno: [], iguais: 0, textos: [] };
+for (const [k, b] of B) {
+  const a = A.get(k);
+  if (!a) { out.novas.push(b.titulo); continue; }
+  if (a.corpo.replace(/\s+/g, ' ') === b.corpo.replace(/\s+/g, ' ')) out.iguais++;
+  else if (forma(a.corpo) === forma(b.corpo)) out.soFormaOuAno.push(b.titulo);
+  else { const va = valores(a.corpo), vb = valores(b.corpo);
+    out.alteradas.push({ titulo: b.titulo, valoresAntes: va.filter(v => !vb.includes(v)),
+      valoresDepois: vb.filter(v => !va.includes(v)), trecho: trecho(a.corpo, b.corpo) }); }
+  if (termos.some(t => k.includes(norm(t).replace(/[^a-z0-9]+/g, '')))) out.textos.push({ titulo: b.titulo, antes: a.corpo, depois: b.corpo });
+}
+for (const [k, a] of A) if (!B.has(k)) out.removidas.push(a.titulo);
+out;
+```
+
+- `alteradas`: o texto mudou. `valoresAntes`/`valoresDepois` trazem os R$ e % que mudaram; `trecho` mostra o pedaço que diverge (pode ser só pontuação no começo e mudança real depois; na dúvida, rode de novo com o título em `termos`).
+- `soFormaOuAno`: só mudaram maiúsculas, pontuação ou anos; não precisa listar como alteração.
+- `novas` e `removidas`: confira se não é a mesma cláusula com título novo (ex.: "HOMOLOGAÇÃO RESCISÃO CONTRATUAL" → "TERMO DE QUITAÇÃO ANUAL E HOMOLOGAÇÃO DA RESCISÃO"); se for, compare as duas com S4.

@@ -14,12 +14,14 @@ Cobre:
 - termos aditivos vinculados a cada instrumento;
 - checagem inicial do formulário, para avisar quando o site do MTE mudar;
 - leitura dos extratos e filtro das cláusulas por título;
+- comparação com o instrumento anterior: cláusulas alteradas (com os valores de antes e depois), novas e removidas;
+- avisos de desafio do Cloudflare/reCAPTCHA, de mudança no HTML da lista e de paginação travada;
 - resposta com registro, solicitação, vigência, partes, abrangência, link e texto integral das cláusulas.
 
 ## Estrutura
 
 - `SKILL.md`: o fluxo e as regras (o que buscar, como escolher a norma, como responder).
-- `references/snippets.md`: o código que roda no navegador (checagem, busca, leitura em lote, extração de cláusulas).
+- `references/snippets.md`: o código que roda no navegador (checagem, busca, leitura em lote, extração de cláusulas, comparação entre instrumentos).
 - `references/campos.md`: IDs do formulário, valores dos selects e endpoints.
 
 ## Instalação

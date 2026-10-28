@@ -11,7 +11,7 @@ Se aparecer um desafio visível (caixa "Não sou um robô", seleção de imagens
 
 Arquivos de apoio:
 
-- `references/snippets.md` — o código para `javascript_tool` (S1 a S5). Copie de lá; não reescreva.
+- `references/snippets.md` — o código para `javascript_tool` (S1 a S6). Copie de lá; não reescreva.
 - `references/campos.md` — IDs dos campos, valores dos selects, grupos de cláusulas, endpoints.
 
 ## 1. Entender o pedido
@@ -52,9 +52,11 @@ Abra `https://mediador.trabalho.gov.br/sistemas/mediador/ConsultarInstColetivo` 
 3. Leia o retorno de S3:
    - "Resultado: N Instrumento(s) ... Página X de Y" → a `lista` traz registro, solicitação, tipo, vigência, partes e link (10 por página);
    - alerta "Nenhum registro encontrado." → resultado válido, zero instrumentos;
-   - outro alerta (ex.: "O intervalo máximo de pesquisa é de um ano.") → a busca não foi feita; corrija o filtro, recarregue e repita.
+   - outro alerta (ex.: "O intervalo máximo de pesquisa é de um ano.") → a busca não foi feita; corrija o filtro, recarregue e repita;
+   - "ALERTA: DESAFIO…" → o Cloudflare ou o reCAPTCHA pediu verificação visível; pare e peça ao usuário que resolva (ver acima);
+   - `aviso` "LAYOUT…" → o site diz que há instrumentos, mas nenhum foi lido: o HTML mudou. Não responda "nenhuma norma"; faça como na falha de S1.
 
-**Próxima página:** clique no link "Próximo >>" de `#divConsultaDetalhada` (não pede novo reCAPTCHA) e rode S3 de novo. Com mais de ~5 páginas, não percorra tudo: mostre o total e sugira refinar (UF, tipo, razão social, período).
+**Próxima página:** clique no link "Próximo >>" de `#divConsultaDetalhada` (não pede novo reCAPTCHA) e rode S3 de novo, uma vez por página. Confira que `pagina` avançou; se voltou a mesma, rode S3 outra vez. `repetidos` lista os registros já vistos nas páginas anteriores (descarte-os); `aviso` "PAGINAÇÃO…" significa que a página não mudou. Com mais de ~5 páginas, não percorra tudo: mostre o total e sugira refinar (UF, tipo, razão social, período).
 
 **Filtro de cláusula do site** (Grupo/SubGrupo/Palavra do Título): usa outro endpoint e devolve direto o texto das cláusulas, sem a `lista`. Só use com filtro estreito (CNPJ); com razão social ou categoria costuma dar 504 e a tela fica em "Processando". Na dúvida, busque sem cláusula e filtre no passo 3.
 
@@ -63,10 +65,11 @@ Abra `https://mediador.trabalho.gov.br/sistemas/mediador/ConsultarInstColetivo` 
 Cada resultado tem um link para o extrato completo em HTML, ex.:
 `https://mediador.trabalho.gov.br/sistemas/mediador/Resumo/ResumoVisualizar?NrSolicitacao=MR071249%2F2024`
 
-Prefira esse link a "Download" (o download gera um arquivo e exige autorização do usuário). Os dois snippets de leitura rodam da aba do Mediador, sem abrir o extrato:
+Prefira esse link a "Download". O download gera um arquivo `.doc` (endpoint em `campos.md`); só baixe se o usuário pedir o arquivo, e com autorização dele. Os snippets de leitura rodam da aba do Mediador, sem abrir o extrato:
 
 - **S5, levantamento em lote**: data de registro, partes, abrangência, aditivos e títulos das cláusulas de vários instrumentos. Os títulos mostram o assunto de cada um e separam acordos paralelos do mesmo período (ex.: um geral de salários e benefícios e outro só de jornada/turnos).
 - **S4, transcrever cláusulas** de um instrumento.
+- **S6, comparar com o instrumento anterior** (ver abaixo).
 
 **Escolher pela abrangência.** A mesma empresa pode ter, na mesma unidade, acordos com categorias diferentes (ex.: um com a federação dos trabalhadores rurais e outro com o sindicato da indústria). Use a categoria da cláusula de abrangência para ficar só com os que cobrem o empregado do caso, e liste os outros como "não se aplica", com o motivo. Se a função do empregado não estiver clara (ex.: industrial ou agrícola), diga quais normas valem em cada hipótese.
 
@@ -80,6 +83,8 @@ S4 separa por cláusula e filtra **primeiro pelo título**; o filtro pelo corpo 
 Se o usuário pedir o texto integral, use `get_page_text`.
 
 **Termos aditivos.** Aditivos alteram cláusulas da norma principal. Sempre que for transcrever uma cláusula ou dizer qual é o texto vigente, confira o campo `aditivos` de S5 para aquele instrumento. Para cada registro: procure-o na lista de resultados que você já tem (aditivos aparecem nas mesmas buscas por partes e período); se não estiver, busque pelo CNPJ de uma das partes com tipo `termoAditivoAcordo` ou `termoAditivoConvecao` e o período da norma principal. Abra o aditivo e veja se ele altera a cláusula pedida. "sem registro" indica um aditivo protocolado mas ainda não registrado; informe isso.
+
+**Comparar com o instrumento anterior.** Use S6 quando o usuário perguntar o que mudou, pedir a norma nova de uma categoria ou empresa que já tinha norma, ou precisar de valores de mais de um período (ex.: diferenças de piso em cálculo). O anterior é o instrumento das mesmas partes e da mesma abrangência no período imediatamente antes; ache-o na mesma busca ou numa busca da janela anterior. S6 alinha as cláusulas pelo título e devolve `alteradas` (com os R$ e % que mudaram e o trecho que diverge), `novas`, `removidas` e `soFormaOuAno` (só maiúsculas, pontuação ou anos). Uma cláusula renomeada aparece como removida e nova ao mesmo tempo: confira os pares antes de dizer que algo deixou de existir. Para transcrever as duas versões de uma cláusula, ponha o título em `termos`.
 
 ## 4. Responder
 
@@ -95,6 +100,8 @@ Para cada instrumento usado, informe:
 **Registro tardio.** Compare a data de registro com o início da vigência. Quando o registro sai meses depois (comum: vigência desde março, registro em outubro), transcreva a cláusula de efeitos/vigência do instrumento, que costuma prever retroação, e aponte as datas de protocolo e de registro. Pelo art. 614, §1º, da CLT, o instrumento entra em vigor 3 dias após a entrega no órgão; se isso importa para o caso (fatos entre o início da vigência e o registro), sinalize ao usuário em vez de concluir sozinho.
 
 Para levantamentos de vários anos, use tabelas por unidade/sindicato (período, registro, solicitação com link, vigência, data de registro), marcando o vigente e os anos sem instrumento encontrado.
+
+Na comparação com o instrumento anterior, faça uma tabela das cláusulas alteradas com valor (cláusula, antes, depois, variação %). Depois, liste em uma linha cada uma as outras alterações de conteúdo, as cláusulas novas e as removidas. Diga quantas mudaram só na forma, sem listá-las. Se o usuário for usar a cláusula, transcreva as duas versões.
 
 Depois, as cláusulas pedidas, transcritas na íntegra com o número e o título (ex.: "CLÁUSULA TERCEIRA - PISOS SALARIAIS..."), porque peças e cálculos precisam do texto exato. Não resuma valores, percentuais ou condições; transcreva.
 

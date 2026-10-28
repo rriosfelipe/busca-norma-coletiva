@@ -54,4 +54,5 @@ Os títulos de grupo aparecem no texto do extrato como cabeçalhos em maiúscula
 - `POST /sistemas/mediador/ConsultarInstColetivo/getConsultaAvancada` — busca normal (exige `recaptchaToken`)
 - `POST .../getConsultaAvancadaClausula` — busca por cláusula (lenta, 504)
 - `GET /sistemas/mediador/Resumo/ResumoVisualizar?NrSolicitacao=MRxxxxxx%2Faaaa` — extrato completo
+- `GET /sistemas/mediador/Resumo/resumoVisualizarSalvarMsWordDoc?NrSolicitacao=MRxxxxxx%2Faaaa` — o mesmo extrato como arquivo `.doc` (`application/msword`, windows-1252, ~150 KB); é o que o link "Download" da lista baixa (`fDownload(solicitação, cnpj)`). Só com autorização do usuário: abra a URL numa aba do Mediador para o navegador baixar.
 - Paginação: `funcPaginar(pagina, total)` via links do resultado.
